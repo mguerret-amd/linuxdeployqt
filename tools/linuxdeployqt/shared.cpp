@@ -408,7 +408,7 @@ bool copyCopyrightFile(QString libPath){
         LogNormal() << "dpkg-query not found, hence not deploying copyright files";
         return false;
     }
-    
+
     QString copyrightFilePath;
 
     /* Find out which package the file being deployed belongs to */
@@ -1367,14 +1367,40 @@ void deployPlugins(const AppDirInfo &appDirInfo, const QString &pluginSourcePath
 
     // Plugin white list:
     QStringList pluginList;
-		
+
     LogDebug() << "deploymentInfo.deployedLibraries before attempting to bundle required plugins:" << deploymentInfo.deployedLibraries;
 
     // Platform plugin:
     if (containsHowOften(deploymentInfo.deployedLibraries, "libQt5Gui")
-        || containsHowOften(deploymentInfo.deployedLibraries, "libQt6Gui")) {
-        LogDebug() << "libQt5Gui/libQt6Gui detected";
+    || containsHowOften(deploymentInfo.deployedLibraries, "libQt6Gui")) {
+
+        LogDebug() << "libQt5Gui detected";
+
+        // Platform xcb support
         pluginList.append("platforms/libqxcb.so");
+
+        // Platform wayland support
+        // pluginList.append("platforms/libqwayland-*.so");
+        QStringList platformWaylandPlugins = QDir(pluginSourcePath + QStringLiteral("/platforms")).entryList(QStringList() << QStringLiteral("libqwayland-*.so"));
+        foreach (const QString &plugin, platformWaylandPlugins) {
+            pluginList.append(QStringLiteral("platforms/") + plugin);
+        }
+
+        // Always bundle wayland-* plugins
+        // pluginList.append("wayland-*");
+        QStringList waylandPluginDirs = QDir(pluginSourcePath).entryList(QStringList() << QStringLiteral("wayland-*"), QDir::NoDot | QDir::NoDotDot | QDir::Dirs);
+        foreach (const QString &plugin, waylandPluginDirs) {
+            QDir pluginDirectory(pluginSourcePath + "/" + plugin);
+            if (pluginDirectory.exists()) {
+                //If it is a plugin directory we will deploy the entire directory
+                QStringList plugins = pluginDirectory.entryList(QStringList() << QStringLiteral("*.so"));
+                foreach (const QString &pluginFile, plugins) {
+                    pluginList.append(plugin + "/" + pluginFile);
+                    LogDebug() << plugin + "/" + pluginFile << "appended";
+                }
+            }
+        }
+
 	// Platform plugin contexts - apparently needed to enter special characters
         QStringList platformPluginContexts = QDir(pluginSourcePath +  QStringLiteral("/platforminputcontexts")).entryList(QStringList() << QStringLiteral("*.so"));
         foreach (const QString &plugin, platformPluginContexts) {
